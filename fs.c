@@ -118,6 +118,7 @@ i32 fsRead(i32 fd, i32 numb, void* buf) {
     offset += bytesToCopy;
   }
 
+  // move the current cursor
   fsSeek(fd, numb, SEEK_CUR);
   return numb;
 }
@@ -225,6 +226,7 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
     offset += BYTESPERBLOCK;
   }
 
+  // move the current cursor
   fsSeek(fd, numb, SEEK_CUR);
   return 0;
 }
