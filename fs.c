@@ -187,11 +187,44 @@ i32 fsSize(i32 fd) {
 // destination file.  On success, return 0.  On failure, abort
 // ============================================================================
 i32 fsWrite(i32 fd, i32 numb, void* buf) {
+  i32 currInum = bfsFdToInum(fd);
+  i32 currCursor = bfsTell(fd);
 
-  // ++++++++++++++++++++++++
-  // Insert your code here
-  // ++++++++++++++++++++++++
+  // find FBNs for the file that is open
+  i32 left = currCursor / BYTESPERBLOCK;
+  i32 right = (currCursor + numb) / BYTESPERBLOCK;
+  i32 fileSize = bfsGetSize(currInum);
 
-  FATAL(ENYI);                                  // Not Yet Implemented!
+  // check to see if writing within file or more than the size of the file
+  if (currCursor + numb > fileSize) {
+    bfsExtend(currInum, right);
+    bfsSetSize(currInum, currCursor + numb);
+  }
+
+  // number of blocks we need to write numb bytes
+  i8 len = right - left + 1;
+  i8 simulatedMem[len * BYTESPERBLOCK];
+
+  // write the first and last FBN into simulated memory space
+  // because we dont know how many bytes to overwrite
+  bfsRead(currInum, left, simulatedMem);
+  if (len > 1) {
+    bfsRead(currInum, right, simulatedMem + (len - 1) * BYTESPERBLOCK);
+  }
+
+  // fill in the rest of the simulated memory with contents from buf
+  memcpy(simulatedMem + currCursor % BYTESPERBLOCK, buf, numb);
+
+  // start writing to memory
+  int offset = 0;
+  i8 tempBuf[BYTESPERBLOCK];
+
+  for (i32 i = left; i <= right; i++) {
+    memcpy(tempBuf, simulatedMem + offset, BYTESPERBLOCK);
+    bioWrite(bfsFbnToDbn(currInum, i), tempBuf);
+    offset += BYTESPERBLOCK;
+  }
+
+  fsSeek(fd, numb, SEEK_CUR);
   return 0;
 }
