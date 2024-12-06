@@ -86,13 +86,40 @@ i32 fsOpen(str fname) {
 // read (may be less than 'numb' if we hit EOF).  On failure, abort
 // ============================================================================
 i32 fsRead(i32 fd, i32 numb, void* buf) {
+  i32 currInum = bfsFdToInum(fd);
+  i32 currCursor = bfsTell(fd);
 
-  // ++++++++++++++++++++++++
-  // Insert your code here
-  // ++++++++++++++++++++++++
+  // find FBNs for the file that is open
+  i32 left = currCursor / BYTESPERBLOCK;
+  i32 right = (currCursor + numb) / BYTESPERBLOCK;
+  i32 fileSize = bfsGetSize(currInum);
 
-  FATAL(ENYI);                                  // Not Yet Implemented!
-  return 0;
+  // re-adjust the FBN if reading more than the size of the file
+  if (numb + currCursor > fileSize) {
+    numb = fileSize - currCursor;
+    right = (currCursor + numb) / BYTESPERBLOCK;
+  }
+
+  // start reading into a temporary buffer and then into the provided buffer
+  i8 tempBuf[BYTESPERBLOCK];
+  int offset = 0;
+
+  for (i32 i = left; i <= right; i++) {
+    bfsRead(currInum, i, tempBuf);
+    i32 bytesToCopy = BYTESPERBLOCK;
+
+    // if on the last FBN copy only the required bytes in the FBN, not the whole FBN
+    if (i == right && (numb % BYTESPERBLOCK) != 0) {
+      bytesToCopy = numb % BYTESPERBLOCK;
+    }
+
+    // copy and offset based on the bytes copied
+    memcpy(((i8*)buf + offset), tempBuf, bytesToCopy);
+    offset += bytesToCopy;
+  }
+
+  fsSeek(fd, numb, SEEK_CUR);
+  return numb;
 }
 
 
