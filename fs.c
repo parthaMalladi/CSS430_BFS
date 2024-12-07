@@ -104,17 +104,39 @@ i32 fsRead(i32 fd, i32 numb, void* buf) {
   i8 tempBuf[BYTESPERBLOCK];
   int offset = 0;
 
+  // if reading from one FBN
+  if (left == right) {
+    bfsRead(currInum, left, tempBuf);
+
+    // offset in the block to where the cursor is before copying to buf
+    i32 startOffset = currCursor % BYTESPERBLOCK; 
+    memcpy(buf, tempBuf + startOffset, numb);
+
+    // move the current cursor
+    fsSeek(fd, numb, SEEK_CUR);
+    return numb;
+  }
+
+  // if reading from multiple FBNs
   for (i32 i = left; i <= right; i++) {
     bfsRead(currInum, i, tempBuf);
+
+    i32 startOffset = 0;
     i32 bytesToCopy = BYTESPERBLOCK;
 
-    // if on the last FBN copy only the required bytes in the FBN, not the whole FBN
+    // if on the first FBN, adjust startOffset to read only from the cursor onwards
+    if (i == left) {
+      startOffset = currCursor % BYTESPERBLOCK;
+      bytesToCopy -= startOffset;
+    }
+
+    // if on the last FBN, adjust bytesToCopy to read only the required portion
     if (i == right && (numb % BYTESPERBLOCK) != 0) {
       bytesToCopy = numb % BYTESPERBLOCK;
     }
 
-    // copy and offset based on the bytes copied
-    memcpy(((i8*)buf + offset), tempBuf, bytesToCopy);
+    // copy from tempBuf into buf
+    memcpy(buf + offset, tempBuf + startOffset, bytesToCopy);
     offset += bytesToCopy;
   }
 
